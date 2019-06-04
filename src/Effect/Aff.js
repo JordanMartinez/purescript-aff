@@ -23,6 +23,8 @@ var Aff = function () {
   var EMPTY = {};
   Aff.EMPTY       = EMPTY;
 
+  // data Aff effect a
+
   // Pure a
   var PURE    = "Pure";
   Aff.Pure        = AffCtr(PURE);
@@ -52,6 +54,7 @@ var Aff = function () {
     }
   }
 
+    // newtype Canceler = Canceller (Error -> Aff Unit)
   // Async ((Either Error a -> Effect Unit) -> Effect (Canceler effect))
   var ASYNC   = "Async";
   Aff.Async       = AffCtr(ASYNC);
@@ -66,7 +69,7 @@ var Aff = function () {
   }
 
 
-  function runEff(effect) {
+  function runEffect(effect) {
     try {
       effect();
     } catch (error) {
@@ -523,7 +526,7 @@ var Aff = function () {
           for (var k in joins) {
             if (joins.hasOwnProperty(k)) {
               rethrow = rethrow && joins[k].rethrow;
-              runEff(joins[k].handler(step));
+              runEffect(joins[k].handler(step));
             }
           }
           joins = null;
