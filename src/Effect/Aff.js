@@ -120,21 +120,42 @@ var Aff = function () {
   var FIBER     = "Fiber";     // Actual fiber reference
   var THUNK     = "Thunk";     // Primed effect, ready to invoke
 
+  // Represents a queue of thunks/callbacks that loops using a fixed-size array.
+  // `drain` will run the thunks in the queue until there are no more.
+  // `isDraining` returns true if the queue is in the process of runnings
+  // its thunks/callbacks.
   var Scheduler = function () {
+    // indicate the number of thunks that can be stored in the queue
     var limit    = 1024;
+    // indicate the number of thunks currently stored in the queue
     var size     = 0;
+    // indicates the index of the current thunk in the queue
     var ix       = 0;
+
+    // TODO: figure out what gets put into this queue
     var queue    = new Array(limit);
+
+    // True when the thunks in the queue are being run.
+    // False otherwise (perhaps to indicate that it can accept more thunks?)
     var draining = false;
 
+    // Forces the thunks stored in the queue until there are no more.
+    // This is called "draining" te queue.
     function drain() {
       var thunk;
       draining = true;
+
+      // execute the thunks in the queue until they are no more
       while (size !== 0) {
+        // decrease size of queue
         size--;
+        // assign current thunk
         thunk     = queue[ix];
+        // null out the value in queue
         queue[ix] = void 0;
+        // update the index to the next item
         ix        = (ix + 1) % limit;
+        // execute the thunk where `draining` = true
         thunk();
       }
       draining = false;
@@ -146,15 +167,19 @@ var Aff = function () {
       },
       enqueue: function (cb) {
         var i, tmp;
+        // If we can't add another thunk to the queue, drain it.
         if (size === limit) {
           tmp = draining;
           drain();
           draining = tmp;
         }
 
+        // Add the callback/thunk to the queue
         queue[(ix + size) % limit] = cb;
         size++;
 
+        // If we weren't already in the process of draining the queue,
+        // drain it.
         if (!draining) {
           drain();
         }
