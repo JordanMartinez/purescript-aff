@@ -36,29 +36,29 @@ var Aff = function () {
   var THROW   = "Throw";
   Aff.Throw       = AffCtr(THROW);
 
-  // Catch (Aff eff a) (Error -> Aff eff a)
+  // Catch (Aff effect a) (Error -> Aff effect a)
   var CATCH   = "Catch";
   Aff.Catch       = AffCtr(CATCH);
 
-  // Sync (Eff eff a)
+  // Sync (Effect a)
   var SYNC    = "Sync";
   Aff.Sync        = AffCtr(SYNC);
 
-  function runSync(left, right, eff) {
+  function runSync(left, right, effect) {
     try {
-      return right(eff());
+      return right(effect());
     } catch (error) {
       return left(error);
     }
   }
 
-  // Async ((Either Error a -> Eff eff Unit) -> Eff eff (Canceler eff))
+  // Async ((Either Error a -> Effect Unit) -> Effect (Canceler effect))
   var ASYNC   = "Async";
   Aff.Async       = AffCtr(ASYNC);
 
-  function runAsync(left, eff, k) {
+  function runAsync(left, effect, k) {
     try {
-      return eff(k)();
+      return effect(k)();
     } catch (error) {
       k(left(error))();
       return nonCanceler;
@@ -66,9 +66,9 @@ var Aff = function () {
   }
 
 
-  function runEff(eff) {
+  function runEff(effect) {
     try {
-      eff();
+      effect();
     } catch (error) {
       setTimeout(function () {
         throw error;
@@ -76,15 +76,15 @@ var Aff = function () {
     }
   }
 
-  // forall b. Bind (Aff eff b) (b -> Aff eff a)
+  // forall b. Bind (Aff effect b) (b -> Aff effect a)
   var BIND    = "Bind";
   Aff.Bind        = AffCtr(BIND);
 
-  // forall b. Bracket (Aff eff b) (BracketConditions eff b) (b -> Aff eff a)
+  // forall b. Bracket (Aff effect b) (BracketConditions effect b) (b -> Aff effect a)
   var BRACKET = "Bracket";
   Aff.Bracket     = AffCtr(BRACKET);
 
-  // forall b. Fork Boolean (Aff eff b) ?(Fiber eff b -> a)
+  // forall b. Fork Boolean (Aff effect b) ?(Fiber effect b -> a)
   var FORK    = "Fork";
   Aff.Fork        = AffCtr(FORK);
 
@@ -92,20 +92,20 @@ var Aff = function () {
   var SEQ     = "Sequential";
   Aff.Seq         = AffCtr(SEQ);
 
-  // data ParAff eff a
-  // forall b. Map (b -> a) (ParAff eff b)
+  // data ParAff effect a
+  // forall b. Map (b -> a) (ParAff effect b)
   var MAP   = "Map";
   Aff.ParMap      = AffCtr(MAP);
 
-  // forall b. Apply (ParAff eff (b -> a)) (ParAff eff b)
+  // forall b. Apply (ParAff effect (b -> a)) (ParAff effect b)
   var APPLY = "Apply";
   Aff.ParApply    = AffCtr(APPLY);
 
-  // Alt (ParAff eff a) (ParAff eff a)
+  // Alt (ParAff effect a) (ParAff effect a)
   var ALT   = "Alt";
   Aff.ParAlt      = AffCtr(ALT);
 
-  // Par (Aff eff a)
+  // Par (Aff effect a)
 
   // Various constructors used in interpretation
   var CONS      = "Cons";      // Cons-list, for stacks
