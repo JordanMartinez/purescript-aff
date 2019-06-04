@@ -3,58 +3,6 @@
 "use strict";
 
 var Aff = function () {
-  // A unique value for empty.
-  var EMPTY = {};
-
-  /*
-
-  An awkward approximation. We elide evidence we would otherwise need in PS for
-  efficiency sake.
-
-  data Aff eff a
-    = Pure a
-    | Throw Error
-    | Catch (Aff eff a) (Error -> Aff eff a)
-    | Sync (Eff eff a)
-    | Async ((Either Error a -> Eff eff Unit) -> Eff eff (Canceler eff))
-    | forall b. Bind (Aff eff b) (b -> Aff eff a)
-    | forall b. Bracket (Aff eff b) (BracketConditions eff b) (b -> Aff eff a)
-    | forall b. Fork Boolean (Aff eff b) ?(Fiber eff b -> a)
-    | Sequential (ParAff aff a)
-
-  */
-  var PURE    = "Pure";
-  var THROW   = "Throw";
-  var CATCH   = "Catch";
-  var SYNC    = "Sync";
-  var ASYNC   = "Async";
-  var BIND    = "Bind";
-  var BRACKET = "Bracket";
-  var FORK    = "Fork";
-  var SEQ     = "Sequential";
-
-  /*
-
-  data ParAff eff a
-    = forall b. Map (b -> a) (ParAff eff b)
-    | forall b. Apply (ParAff eff (b -> a)) (ParAff eff b)
-    | Alt (ParAff eff a) (ParAff eff a)
-    | ?Par (Aff eff a)
-
-  */
-  var MAP   = "Map";
-  var APPLY = "Apply";
-  var ALT   = "Alt";
-
-  // Various constructors used in interpretation
-  var CONS      = "Cons";      // Cons-list, for stacks
-  var RESUME    = "Resume";    // Continue indiscriminately
-  var RELEASE   = "Release";   // Continue with bracket finalizers
-  var FINALIZER = "Finalizer"; // A non-interruptible effect
-  var FINALIZED = "Finalized"; // Marker for finalization
-  var FORKED    = "Forked";    // Reference to a forked fiber, with resumption stack
-  var FIBER     = "Fiber";     // Actual fiber reference
-  var THUNK     = "Thunk";     // Primed effect, ready to invoke
 
   function Aff(tag, _1, _2, _3) {
     this.tag = tag;
@@ -71,9 +19,52 @@ var Aff = function () {
     return fn;
   }
 
+  // A unique value for empty.
+  var EMPTY = {};
+  Aff.EMPTY       = EMPTY;
+
+  // Pure a
+  var PURE    = "Pure";
+  Aff.Pure        = AffCtr(PURE);
+
   function nonCanceler(error) {
     return new Aff(PURE, void 0);
   }
+  Aff.nonCanceler = nonCanceler;
+
+  // Throw Error
+  var THROW   = "Throw";
+  Aff.Throw       = AffCtr(THROW);
+
+  // Catch (Aff eff a) (Error -> Aff eff a)
+  var CATCH   = "Catch";
+  Aff.Catch       = AffCtr(CATCH);
+
+  // Sync (Eff eff a)
+  var SYNC    = "Sync";
+  Aff.Sync        = AffCtr(SYNC);
+
+  function runSync(left, right, eff) {
+    try {
+      return right(eff());
+    } catch (error) {
+      return left(error);
+    }
+  }
+
+  // Async ((Either Error a -> Eff eff Unit) -> Eff eff (Canceler eff))
+  var ASYNC   = "Async";
+  Aff.Async       = AffCtr(ASYNC);
+
+  function runAsync(left, eff, k) {
+    try {
+      return eff(k)();
+    } catch (error) {
+      k(left(error))();
+      return nonCanceler;
+    }
+  }
+
 
   function runEff(eff) {
     try {
@@ -85,22 +76,46 @@ var Aff = function () {
     }
   }
 
-  function runSync(left, right, eff) {
-    try {
-      return right(eff());
-    } catch (error) {
-      return left(error);
-    }
-  }
+  // forall b. Bind (Aff eff b) (b -> Aff eff a)
+  var BIND    = "Bind";
+  Aff.Bind        = AffCtr(BIND);
 
-  function runAsync(left, eff, k) {
-    try {
-      return eff(k)();
-    } catch (error) {
-      k(left(error))();
-      return nonCanceler;
-    }
-  }
+  // forall b. Bracket (Aff eff b) (BracketConditions eff b) (b -> Aff eff a)
+  var BRACKET = "Bracket";
+  Aff.Bracket     = AffCtr(BRACKET);
+
+  // forall b. Fork Boolean (Aff eff b) ?(Fiber eff b -> a)
+  var FORK    = "Fork";
+  Aff.Fork        = AffCtr(FORK);
+
+  // Sequential (ParAff aff a)
+  var SEQ     = "Sequential";
+  Aff.Seq         = AffCtr(SEQ);
+
+  // data ParAff eff a
+  // forall b. Map (b -> a) (ParAff eff b)
+  var MAP   = "Map";
+  Aff.ParMap      = AffCtr(MAP);
+
+  // forall b. Apply (ParAff eff (b -> a)) (ParAff eff b)
+  var APPLY = "Apply";
+  Aff.ParApply    = AffCtr(APPLY);
+
+  // Alt (ParAff eff a) (ParAff eff a)
+  var ALT   = "Alt";
+  Aff.ParAlt      = AffCtr(ALT);
+
+  // Par (Aff eff a)
+
+  // Various constructors used in interpretation
+  var CONS      = "Cons";      // Cons-list, for stacks
+  var RESUME    = "Resume";    // Continue indiscriminately
+  var RELEASE   = "Release";   // Continue with bracket finalizers
+  var FINALIZER = "Finalizer"; // A non-interruptible effect
+  var FINALIZED = "Finalized"; // Marker for finalization
+  var FORKED    = "Forked";    // Reference to a forked fiber, with resumption stack
+  var FIBER     = "Fiber";     // Actual fiber reference
+  var THUNK     = "Thunk";     // Primed effect, ready to invoke
 
   var Scheduler = function () {
     var limit    = 1024;
@@ -143,6 +158,7 @@ var Aff = function () {
       }
     };
   }();
+  Aff.Scheduler   = Scheduler;
 
   function Supervisor(util) {
     var fibers  = {};
@@ -217,6 +233,7 @@ var Aff = function () {
       }
     };
   }
+  Aff.Supervisor  = Supervisor;
 
   // Fiber state machine
   var SUSPENDED   = 0; // Suspended, pending a join.
@@ -639,6 +656,7 @@ var Aff = function () {
       }
     };
   }
+  Aff.Fiber       = Fiber;
 
   function runPar(util, supervisor, par, cb) {
     // Table of all forked fibers.
@@ -1011,24 +1029,6 @@ var Aff = function () {
       };
     });
   }
-
-  Aff.EMPTY       = EMPTY;
-  Aff.Pure        = AffCtr(PURE);
-  Aff.Throw       = AffCtr(THROW);
-  Aff.Catch       = AffCtr(CATCH);
-  Aff.Sync        = AffCtr(SYNC);
-  Aff.Async       = AffCtr(ASYNC);
-  Aff.Bind        = AffCtr(BIND);
-  Aff.Bracket     = AffCtr(BRACKET);
-  Aff.Fork        = AffCtr(FORK);
-  Aff.Seq         = AffCtr(SEQ);
-  Aff.ParMap      = AffCtr(MAP);
-  Aff.ParApply    = AffCtr(APPLY);
-  Aff.ParAlt      = AffCtr(ALT);
-  Aff.Fiber       = Fiber;
-  Aff.Supervisor  = Supervisor;
-  Aff.Scheduler   = Scheduler;
-  Aff.nonCanceler = nonCanceler;
 
   return Aff;
 }();
