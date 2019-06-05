@@ -4,6 +4,22 @@
 
 var Aff = function () {
 
+  /*
+    Simulates a sum ADT:
+    ```
+    data Type = DataConstructor Arg_1 Arg_2 Arg_3
+    ```
+
+    The tag is the data constructor.
+    Since the most arguments any one of those data constructors
+    is 3, there are three values:
+      - _1
+      - _2
+      - _3
+
+    Not all of them are used in every data constructor.
+    For example, `PURE` only uses the first one whereas `BIND` uses two.
+  */
   function Aff(tag, _1, _2, _3) {
     this.tag = tag;
     this._1  = _1;
