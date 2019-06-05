@@ -189,38 +189,84 @@ var Aff = function () {
   Aff.Scheduler   = Scheduler;
 
   function Supervisor(util) {
+    // While not quite fitting it exactly, this is used like
+    // an array of fibers that this Suprevisor oversees
+    // Use the fiber's `fiberId` value to get the corresponding fiber
     var fibers  = {};
+
+    // Counter used to produce a unique ID value for a fiber
     var fiberId = 0;
+
+    // Tracks the number of fibers this Supervisor oversees.
     var count   = 0;
 
     return {
       register: function (fiber) {
         var fid = fiberId++;
+        // when the fiber completes, remove it from the list of fibers
+        // to potentially kill later and decrease the total number
+        // of fibers to kill if `killAll` is called
         fiber.onComplete({
+          // fiber will re-throw its error so we can run this Supervisor's
+          // cleanup code. The cleanup code will rethrow the error
+          // if there was any.
           rethrow: true,
           handler: function (result) {
             return function () {
+              // when the fiber completes, reduce the total count of fibers
+              // this supervisor oversees
               count--;
+              // then remove that id from the list of fibers
               delete fibers[fid];
             };
           }
         });
+        // store the fiber in the array of fibers at the given index
         fibers[fid] = fiber;
+        // increase the total number of fibers this supervisor oversees
         count++;
       },
+      // Indicates whether the supervisor oversees any fibers
       isEmpty: function () {
         return count === 0;
       },
+      /*
+        Does 3 things:
+          1. Resets the Supervisor's state to its initial values
+              - fibers array is empty
+              - fiberId is 0
+              - fiberCount is 0
+          2. Kills all fibers with the given `killError` and rethrows
+              a fiber's error (if it had one) in a new stack.
+          3. Once the final fiber is killed, runs the `cb`
+      */
       killAll: function (killError, cb) {
         return function () {
+          // If this supervisor doesn't oversee any fibers,
+          // then just run the callback
           if (count === 0) {
             return cb();
           }
 
+          // Track how many fibers have been killed so far
           var killCount = 0;
+          /*
+            An array of thunks that
+              - rethrows a computation's error (if any)
+              - runs the `cb` if it's the last fiber that was killed
+          */
           var kills     = {};
 
           function kill(fid) {
+            /*
+               Kill the fiber and store a thunk in `kills`.
+               This thunk will
+                - delete itself from `kills`
+                - if the computation errored, it will rethrow the error in a new stack.
+
+               If this thunk is the last one to kill, then the callback
+               will be run
+            */
             kills[fid] = fibers[fid].kill(killError, function (result) {
               return function () {
                 delete kills[fid];
@@ -237,21 +283,50 @@ var Aff = function () {
             })();
           }
 
+          // iterate through the fibers to kill
           for (var k in fibers) {
             if (fibers.hasOwnProperty(k)) {
+              // Increase the number of fibers that need to be killed
+              // so we know when we have killed the last fiber and
+              // can now run the callback.
               killCount++;
+              /*
+                1. Kill the fiber
+                2. Store a thunk in `kills`
+
+                When executed, the thunk will
+                    - removes itself from `kills`
+                    - rethrow the error that the original fiber-killing produced ? TODO: check this
+                    - If the fiber is the last fiber, run the `callback`.
+              */
               kill(k);
             }
           }
 
+          // Now that the fibers have been killed and any state we need
+          // has been stored in `kills` and `killCount`,
+          // we don't need to keep track of them anymore.
+          // Thus, reset the state of the Supervisor.
           fibers  = {};
           fiberId = 0;
           count   = 0;
 
+          // Return a function that, when executed, will kill all
+          // of the fibers and then run the `callback` once the last one
+          // has been killed
           return function (error) {
             return new Aff(SYNC, function () {
+              // Iterate through all fiber-killing-thunks stored
+              // in the array-like `kills` object.
               for (var k in kills) {
                 if (kills.hasOwnProperty(k)) {
+                  /*
+                    In the below `kills[k]()` line, this is what occurs
+                      1. For each fiber...
+                        1.1. Kill the fiber and store the `delete-from-kills` callback
+                        1.2. Run that callback, which deletes the 'kill-thunk' from the `kills` object
+                        1.3. If this is the last fiber to kill, run the callback.
+                  */
                   kills[k]();
                 }
               }
