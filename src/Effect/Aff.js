@@ -742,6 +742,17 @@ var Aff = function () {
       };
     }
 
+    /*
+      Add a handler to the fiber's list of callbacks when it completes
+      and do not rethrow any possible errors.
+
+        If
+          this fiber was just created
+            or
+          was created but hasn't started running yet due to
+            someone using `suspendAff`
+      start running it
+    */
     function join(cb) {
       return function () {
         var canceler = onComplete({
