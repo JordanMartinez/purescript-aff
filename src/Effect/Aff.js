@@ -79,47 +79,6 @@ var Aff = function () {
     }
   }
 
-  // forall b. Bind (Aff effect b) (b -> Aff effect a)
-  var BIND    = "Bind";
-  Aff.Bind        = AffCtr(BIND);
-
-  // forall b. Bracket (Aff effect b) (BracketConditions effect b) (b -> Aff effect a)
-  var BRACKET = "Bracket";
-  Aff.Bracket     = AffCtr(BRACKET);
-
-  // forall b. Fork Boolean (Aff effect b) ?(Fiber effect b -> a)
-  var FORK    = "Fork";
-  Aff.Fork        = AffCtr(FORK);
-
-  // Sequential (ParAff aff a)
-  var SEQ     = "Sequential";
-  Aff.Seq         = AffCtr(SEQ);
-
-  // data ParAff effect a
-  // forall b. Map (b -> a) (ParAff effect b)
-  var MAP   = "Map";
-  Aff.ParMap      = AffCtr(MAP);
-
-  // forall b. Apply (ParAff effect (b -> a)) (ParAff effect b)
-  var APPLY = "Apply";
-  Aff.ParApply    = AffCtr(APPLY);
-
-  // Alt (ParAff effect a) (ParAff effect a)
-  var ALT   = "Alt";
-  Aff.ParAlt      = AffCtr(ALT);
-
-  // Par (Aff effect a)
-
-  // Various constructors used in interpretation
-  var CONS      = "Cons";      // Cons-list, for stacks
-  var RESUME    = "Resume";    // Continue indiscriminately
-  var RELEASE   = "Release";   // Continue with bracket finalizers
-  var FINALIZER = "Finalizer"; // A non-interruptible effect
-  var FINALIZED = "Finalized"; // Marker for finalization
-  var FORKED    = "Forked";    // Reference to a forked fiber, with resumption stack
-  var FIBER     = "Fiber";     // Actual fiber reference
-  var THUNK     = "Thunk";     // Primed effect, ready to invoke
-
   // Represents a queue of thunks/callbacks that loops using a fixed-size array.
   // `drain` will run the thunks in the queue until there are no more.
   // `isDraining` returns true if the queue is in the process of runnings
@@ -337,6 +296,47 @@ var Aff = function () {
     };
   }
   Aff.Supervisor  = Supervisor;
+
+  // forall b. Bind (Aff effect b) (b -> Aff effect a)
+  var BIND    = "Bind";
+  Aff.Bind        = AffCtr(BIND);
+
+  // forall b. Bracket (Aff effect b) (BracketConditions effect b) (b -> Aff effect a)
+  var BRACKET = "Bracket";
+  Aff.Bracket     = AffCtr(BRACKET);
+
+  // forall b. Fork Boolean (Aff effect b) ?(Fiber effect b -> a)
+  var FORK    = "Fork";
+  Aff.Fork        = AffCtr(FORK);
+
+  // Sequential (ParAff aff a)
+  var SEQ     = "Sequential";
+  Aff.Seq         = AffCtr(SEQ);
+
+  // data ParAff effect a
+  // forall b. Map (b -> a) (ParAff effect b)
+  var MAP   = "Map";
+  Aff.ParMap      = AffCtr(MAP);
+
+  // forall b. Apply (ParAff effect (b -> a)) (ParAff effect b)
+  var APPLY = "Apply";
+  Aff.ParApply    = AffCtr(APPLY);
+
+  // Alt (ParAff effect a) (ParAff effect a)
+  var ALT   = "Alt";
+  Aff.ParAlt      = AffCtr(ALT);
+
+  // Par (Aff effect a)
+
+  // Various constructors used in interpretation
+  var CONS      = "Cons";      // Cons-list, for stacks
+  var RESUME    = "Resume";    // Continue indiscriminately
+  var RELEASE   = "Release";   // Continue with bracket finalizers
+  var FINALIZER = "Finalizer"; // A non-interruptible effect
+  var FINALIZED = "Finalized"; // Marker for finalization
+  var FORKED    = "Forked";    // Reference to a forked fiber, with resumption stack
+  var FIBER     = "Fiber";     // Actual fiber reference
+  var THUNK     = "Thunk";     // Primed effect, ready to invoke
 
   // Fiber state machine
   var SUSPENDED   = 0; // Suspended, pending a join.
