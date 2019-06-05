@@ -672,19 +672,44 @@ var Aff = function () {
       }
     }
 
+    /*
+      type JoinRecord = { rethrow :: Boolean
+                        , handler :: Aff a -> Effect ???
+                        }
+    */
     function onComplete(join) {
       return function () {
+        /*
+            If this fiber is already completed,
+          then pass its result into the callback handler
+        */
         if (status === COMPLETED) {
           rethrow = rethrow && join.rethrow;
           join.handler(step)();
+
+          /*
+            Since this fiber is already COMPLETED,
+            we don't need to store a reference to the join handler.
+            Thus, there's nothing here to clean up, but
+            this function needs to return a pointless thunk
+            to satisfy our type signatures
+          */
           return function () {};
         }
+
+        /*
+          Otherwise, add the handler to the array of join handlers
+          and return a function that will clean up the memory reference
+          to the join handler.
+        */
 
         var jid    = joinId++;
         joins      = joins || {};
         joins[jid] = join;
 
         return function() {
+          // Since this fiber isn't COMPLETED yet,
+          // we need to cleanup the memory reference to this join handler
           if (joins !== null) {
             delete joins[jid];
           }
