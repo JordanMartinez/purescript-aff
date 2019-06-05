@@ -762,6 +762,12 @@ var Aff = function () {
       isSuspended: function () {
         return status === SUSPENDED;
       },
+      /* If the scheduler is not currently executing its queue's thunks,
+          then enqueue the thunk
+            In other words, add the 'runTick' thunk to the queue and
+            then drain the queue if it wasn't already running.
+          else run the tick
+      */
       run: function () {
         if (status === SUSPENDED) {
           if (!Scheduler.isDraining()) {
