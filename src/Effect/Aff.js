@@ -345,9 +345,13 @@ var Aff = function () {
   // Par (Aff effect a)
 
   // Various constructors used in interpretation
+  // new Aff(CONS, new Aff(FINALIZER, step(error), attempts, interrupt))
+  // new Aff(CONS, bhead, btail)
   var CONS      = "Cons";      // Cons-list, for stacks
   var RESUME    = "Resume";    // Continue indiscriminately
   var RELEASE   = "Release";   // Continue with bracket finalizers
+
+  // new Aff(FINALIZER, step(error)
   var FINALIZER = "Finalizer"; // A non-interruptible effect
   var FINALIZED = "Finalized"; // Marker for finalization
   var FORKED    = "Forked";    // Reference to a forked fiber, with resumption stack
@@ -375,11 +379,12 @@ var Aff = function () {
     var fail      = null; // Failure step
     var interrupt = null; // Asynchronous interrupt
 
+    // Simulates a Stack Continuations via a `List Continuations` type
     // Stack of continuations for the current fiber.
     var bhead = null;
     var btail = null;
 
-    // Stack of attempts and finalizers for error recovery. Every `Cons` is also
+    // Stack of attempts and finalizers for error recovernew Aff(FINALIZER, step(error)y. Every `Cons` is also
     // tagged with current `interrupt` state. We use this to track which items
     // should be ignored or evaluated as a result of a kill.
     var attempts = null;
@@ -394,15 +399,26 @@ var Aff = function () {
     var joins   = null;
     var rethrow = true;
 
+    /*
+      To prevent multiple async continuations from accidentally resuming
+      the same fiber, we use a 'tick' counter to check that the local tick
+      coincides with the fiber's tick before resuming. For example, invoking
+      the provided callback in `makeAff` more than once. As another example,
+      an async effect resuming after the fiber was already cancelled.
+    */
+    /*
     // Each invocation of `run` requires a tick. When an asynchronous effect is
     // resolved, we must check that the local tick coincides with the fiber
     // tick before resuming. This prevents multiple async continuations from
     // accidentally resuming the same fiber. A common example may be invoking
     // the provided callback in `makeAff` more than once, but it may also be an
     // async effect resuming after the fiber was already cancelled.
+    */
     function run(localRunTick) {
       var tmp, result, attempt;
+      // Only the COMPLETED and PENDING status exit out of this while loop
       while (true) {
+        // reset state
         tmp       = null;
         result    = null;
         attempt   = null;
@@ -719,11 +735,21 @@ var Aff = function () {
 
     function kill(error, cb) {
       return function () {
+        /*
+            If the fiber has already COMPLETED,
+          then return a `Right Unit` value
+            where 'undefined' is the unit value
+        */
         if (status === COMPLETED) {
           cb(util.right(void 0))();
+          // There's no cleanup code that needs to run, so return a pointless thunk
           return function () {};
         }
 
+        /*
+          Add a handler that returns a `Right Unit` value
+            where 'undefined' is the unit value
+        */
         var canceler = onComplete({
           rethrow: false,
           handler: function (/* unused */) {
@@ -732,6 +758,13 @@ var Aff = function () {
         })();
 
         switch (status) {
+          /*
+              If the fiber was never started/run,
+            then
+              run the callee's provided default 'error' computation
+                and
+              set state to COMPLETED to prevent any additional computations
+          */
         case SUSPENDED:
           interrupt = util.left(error);
           status    = COMPLETED;
@@ -798,8 +831,9 @@ var Aff = function () {
       isSuspended: function () {
         return status === SUSPENDED;
       },
-      /* If the scheduler is not currently executing its queue's thunks,
-          then enqueue the thunk
+      /*
+          If the scheduler is not currently executing its queue's thunks,
+        then enqueue the thunk
             In other words, add the 'runTick' thunk to the queue and
             then drain the queue if it wasn't already running.
           else run the tick
